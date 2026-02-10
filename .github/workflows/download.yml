@@ -1,61 +1,130 @@
 name: Download Artifact from repo-a
- 
+
 on:
-
   workflow_dispatch:
-
   schedule:
-
     - cron: "*/30 * * * *"
- 
+
 jobs:
-
   download:
-
     runs-on: [self-hosted, linux]
- 
+    
     steps:
-
-
-      - name: Fetch artifact list
-
+      - name: Check environment
         run: |
-
+          echo "Runner working directory: $(pwd)"
+          echo "User: $(whoami)"
+          ls -la
+      
+      - name: Fetch artifact list
+        id: fetch
+        run: |
+          # 添加错误处理和调试信息
+          echo "Fetching artifacts from liushiyou006/aliyun_docker_sync"
+          
           curl -s \
-
             -H "Authorization: Bearer ${{ secrets.LIUDONGDONG7397 }}" \
             -H "Accept: application/vnd.github+json" \
-             https://api.github.com/repos/liushiyou006/aliyun_docker_sync/actions/artifacts \
+            "https://api.github.com/repos/liushiyou006/aliyun_docker_sync/actions/artifacts?per_page=10" \
             > artifacts.json
- 
-      - name: Get latest artifact url
-
-        run: |
-
-          ART_URL=$(jq -r '.artifacts[0].archive_download_url' artifacts.json)
-
-          echo "ART_URL=$ART_URL" >> $GITHUB_ENV
- 
+          
+          # 检查是否成功获取
+          if [ ! -s artifacts.json ]; then
+            echo "❌ Failed to fetch artifacts or response is empty"
+            exit 1
+          fi
+          
+          # 显示基本信息
+          TOTAL_COUNT=$(jq '.total_count' artifacts.json)
+          echo "Total artifacts found: $TOTAL_COUNT"
+          
+          # 检查是否有 artifacts
+          if [ "$TOTAL_COUNT" -eq "0" ]; then
+            echo "⚠️ No artifacts found"
+            echo "has_artifacts=false" >> $GITHUB_OUTPUT
+            exit 0  # 正常退出，只是没有 artifacts
+          else
+            echo "has_artifacts=true" >> $GITHUB_OUTPUT
+            
+            # 显示前几个 artifacts 信息
+            echo "Latest artifacts:"
+            jq -r '.artifacts[:3][] | "  • \(.name) (ID: \(.id), Created: \(.created_at))"' artifacts.json
+            
+            # 获取最新的 artifact 信息
+            LATEST_ID=$(jq '.artifacts[0].id' artifacts.json)
+            LATEST_NAME=$(jq -r '.artifacts[0].name' artifacts.json)
+            
+            echo "artifact_id=$LATEST_ID" >> $GITHUB_OUTPUT
+            echo "artifact_name=$LATEST_NAME" >> $GITHUB_OUTPUT
+          fi
+      
       - name: Download artifact
-
+        if: steps.fetch.outputs.has_artifacts == 'true'
+        id: download
         run: |
-
-          mkdir -p /home/asus/actions-runner/data/from-repo-a
-
+          # 创建目标目录（确保有权限）
+          TARGET_DIR="/home/asus/actions-runner/data/from-repo-a"
+          mkdir -p "$TARGET_DIR"
+          
+          # 获取最新的 artifact ID
+          ARTIFACT_ID=$(jq '.artifacts[0].id' artifacts.json)
+          ARTIFACT_NAME=$(jq -r '.artifacts[0].name' artifacts.json)
+          
+          echo "Downloading artifact: $ARTIFACT_NAME (ID: $ARTIFACT_ID)"
+          echo "Target directory: $TARGET_DIR"
+          
+          # 下载 artifact
           curl -L \
-
-            -H "Authorization: Bearer ${{ secrets.GH_TOKEN_A }}" \
-
-            -o /home/asus/actions-runner/data/from-repo-a/artifact.zip \
-
-            $ART_URL
- 
-      - name: Unzip
-
+            -H "Authorization: Bearer ${{ secrets.LIUDONGDONG7397 }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/liushiyou006/aliyun_docker_sync/actions/artifacts/$ARTIFACT_ID/zip" \
+            -o "$TARGET_DIR/artifact.zip"
+          
+          # 检查下载是否成功
+          if [ -f "$TARGET_DIR/artifact.zip" ]; then
+            FILE_SIZE=$(wc -c < "$TARGET_DIR/artifact.zip")
+            echo "✅ Download successful: $FILE_SIZE bytes"
+            echo "download_path=$TARGET_DIR/artifact.zip" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Download failed"
+            exit 1
+          fi
+      
+      - name: Unzip and process
+        if: steps.fetch.outputs.has_artifacts == 'true'
         run: |
-
-          unzip -o /home/asus/actions-runner/data/from-repo-a/artifact.zip -d /home/asus/actions-runner/data/from-repo-a
-
-          ls -lh /home/asus/actions-runner/data/from-repo-a
-
- 
+          TARGET_DIR="/home/asus/actions-runner/data/from-repo-a"
+          
+          echo "Unzipping $TARGET_DIR/artifact.zip..."
+          
+          # 先检查文件
+          if [ ! -f "$TARGET_DIR/artifact.zip" ]; then
+            echo "❌ Artifact file not found"
+            exit 1
+          fi
+          
+          # 创建解压目录
+          EXTRACT_DIR="$TARGET_DIR/extracted"
+          mkdir -p "$EXTRACT_DIR"
+          
+          # 解压文件
+          unzip -o "$TARGET_DIR/artifact.zip" -d "$EXTRACT_DIR"
+          
+          echo "✅ Extraction complete"
+          echo "Extracted files in $EXTRACT_DIR:"
+          ls -la "$EXTRACT_DIR"
+          
+          # 如果有文件，列出详细内容
+          if [ -d "$EXTRACT_DIR" ]; then
+            echo "Contents:"
+            find "$EXTRACT_DIR" -type f | while read file; do
+              echo "  📄 $file ($(wc -c < "$file") bytes)"
+            done
+          fi
+      
+      - name: Cleanup (optional)
+        if: always()
+        run: |
+          # 清理临时文件
+          rm -f artifacts.json
+          echo "Cleanup completed"
