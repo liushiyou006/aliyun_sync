@@ -1,37 +1,69 @@
 name: Download Artifact from repo-a
  
 on:
+
   workflow_dispatch:
+
   schedule:
+
     - cron: "*/30 * * * *"
  
 jobs:
+
   download:
-    runs-on: ubuntu-latest
+
+    runs-on: [self-hosted, linux]
  
     steps:
-      - name: Fetch artifact list
+
+      - name: Prepare tools
+
         run: |
+
+          sudo apt-get update
+
+          sudo apt-get install -y curl jq unzip
+ 
+      - name: Fetch artifact list
+
+        run: |
+
           curl -s \
+
             -H "Authorization: Bearer ${{ secrets.GH_TOKEN_A }}" \
+
             -H "Accept: application/vnd.github+json" \
-https://api.github.com/repos/liudongdongdong7397/aliyun_docker_sync/actions/artifacts \
+https://api.github.com/repos/ACCOUNT_A/repo-a/actions/artifacts \
 > artifacts.json
  
-      - name: Extract latest artifact URL
+      - name: Get latest artifact url
+
         run: |
-          sudo apt-get update && sudo apt-get install -y jq
+
           ART_URL=$(jq -r '.artifacts[0].archive_download_url' artifacts.json)
+
           echo "ART_URL=$ART_URL" >> $GITHUB_ENV
  
       - name: Download artifact
+
         run: |
+
+          mkdir -p /data/from-repo-a
+
           curl -L \
+
             -H "Authorization: Bearer ${{ secrets.GH_TOKEN_A }}" \
-            -o artifact.zip \
+
+            -o /data/from-repo-a/artifact.zip \
+
             $ART_URL
  
       - name: Unzip
+
         run: |
-          unzip artifact.zip -d data
-          ls -lh data
+
+          unzip -o /data/from-repo-a/artifact.zip -d /data/from-repo-a
+
+          ls -lh /data/from-repo-a
+
+ 
