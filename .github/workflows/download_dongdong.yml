@@ -1,0 +1,37 @@
+name: Download Artifact from repo-a
+ 
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+ 
+jobs:
+  download:
+    runs-on: ubuntu-latest
+ 
+    steps:
+      - name: Fetch artifact list
+        run: |
+          curl -s \
+            -H "Authorization: Bearer ${{ secrets.GH_TOKEN_A }}" \
+            -H "Accept: application/vnd.github+json" \
+https://api.github.com/repos/liudongdongdong7397/aliyun_docker_sync/actions/artifacts \
+> artifacts.json
+ 
+      - name: Extract latest artifact URL
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          ART_URL=$(jq -r '.artifacts[0].archive_download_url' artifacts.json)
+          echo "ART_URL=$ART_URL" >> $GITHUB_ENV
+ 
+      - name: Download artifact
+        run: |
+          curl -L \
+            -H "Authorization: Bearer ${{ secrets.GH_TOKEN_A }}" \
+            -o artifact.zip \
+            $ART_URL
+ 
+      - name: Unzip
+        run: |
+          unzip artifact.zip -d data
+          ls -lh data
