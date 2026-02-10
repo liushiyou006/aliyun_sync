@@ -25,13 +25,13 @@ jobs:
  
       - name: Download artifact
         run: |
-          mkdir -p /data/from-repo-a
+          mkdir -p /home/asus/actions-runner/data/from-repo-a
           curl -L \
             -H "Authorization: Bearer ${{ secrets.LIUDONGDONG7397 }}" \
-            -o /data/from-repo-a/artifact.zip \
+            -o /home/asus/actions-runner/data/from-repo-a/artifact.zip \
             $ART_URL
  
       - name: Unzip
         run: |
-          unzip -o /data/from-repo-a/artifact.zip -d /data/from-repo-a
-          ls -lh /data/from-repo-a
+          unzip -o /home/asus/actions-runner/data/from-repo-a/artifact.zip -d /home/asus/actions-runner/data/from-repo-a
+          ls -lh /home/asus/actions-runner/data/from-repo-a
