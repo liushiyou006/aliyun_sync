@@ -1,49 +1,61 @@
-name: Download on Dispatch
+name: Download On Dispatch
+ 
 on:
   repository_dispatch:
     types: [sync_event]
+ 
 jobs:
   download:
     runs-on: [self-hosted, linux]
+ 
     steps:
-      - name: Read artifact id
+ 
+      - name: Get artifact id
         id: get_id
         run: |
-          ART_ID="${{ github.event.client_payload.artifact_id }}"
-          echo "ART_ID=$ART_ID" >> $GITHUB_OUTPUT
+          echo "ART_ID=${{ github.event.client_payload.artifact_id }}" >> $GITHUB_OUTPUT
+ 
       - name: Check duplicate
-        id: check_dup
+        id: check
         run: |
-          STATE_FILE="/home/asus/aliyun_sync/last_id.txt"
-          NEW_ID="${{ steps.get_id.outputs.ART_ID }}"
-          if [ -f "$STATE_FILE" ]; then
-            LAST_ID=$(cat $STATE_FILE)
+          STATE="/home/asus/aliyun_sync/last_id.txt"
+          NEW="${{ steps.get_id.outputs.ART_ID }}"
+ 
+          mkdir -p /home/asus/aliyun_sync
+ 
+          if [ -f "$STATE" ]; then
+            LAST=$(cat $STATE)
           else
-            LAST_ID="0"
+            LAST="0"
           fi
-          if [ "$NEW_ID" = "$LAST_ID" ]; then
-            echo "DUPLICATE=true" >> $GITHUB_OUTPUT
+ 
+          if [ "$NEW" = "$LAST" ]; then
+            echo "DUP=true" >> $GITHUB_OUTPUT
           else
-            echo "DUPLICATE=false" >> $GITHUB_OUTPUT
+            echo "DUP=false" >> $GITHUB_OUTPUT
           fi
+ 
       - name: Download artifact
-        if: steps.check_dup.outputs.DUPLICATE == 'false'
+        if: steps.check.outputs.DUP == 'false'
         run: |
           ART_ID="${{ steps.get_id.outputs.ART_ID }}"
-          API="https://api.github.com/repos/liudongdongdong7397/aliyun_docker_sync/actions/artifacts/$ART_ID/zip"
+          API="https://api.github.com/repos/liudongdongdong7397/aliyun_docker_sync>/actions/artifacts/$ART_ID/zip"
+ 
           mkdir -p /home/asus/aliyun_sync
+ 
           curl -L \
             -H "Authorization: Bearer ${{ secrets.LIUDONGDONG7397 }}" \
             -H "Accept: application/vnd.github+json" \
             -o /home/asus/aliyun_sync/artifact.zip \
             "$API"
+ 
       - name: Extract
-        if: steps.check_dup.outputs.DUPLICATE == 'false'
+        if: steps.check.outputs.DUP == 'false'
         run: |
           cd /home/asus/aliyun_sync
           unzip -o artifact.zip
+ 
       - name: Update state
-        if: steps.check_dup.outputs.DUPLICATE == 'false'
+        if: steps.check.outputs.DUP == 'false'
         run: |
           echo "${{ steps.get_id.outputs.ART_ID }}" > /home/asus/aliyun_sync/last_id.txt
- 
