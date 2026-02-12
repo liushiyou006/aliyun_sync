@@ -39,7 +39,7 @@ jobs:
         if: steps.check.outputs.DUP == 'false'
         run: |
           ART_ID="${{ steps.get_id.outputs.ART_ID }}"
-          API="https://api.github.com/repos/liudongdongdong7397/aliyun_docker_sync>/actions/artifacts/$ART_ID/zip"
+          API="https://api.github.com/repos/liudongdongdong7397/aliyun_docker_sync/actions/artifacts/$ART_ID/zip"
  
           mkdir -p /home/asus/aliyun_sync
  
