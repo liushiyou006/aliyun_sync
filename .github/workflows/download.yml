@@ -1,44 +1,49 @@
-name: Download Artifact from repo-a
- 
+name: Download on Dispatch
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: "*/30 * * * *"
- 
+  repository_dispatch:
+    types: [sync_event]
 jobs:
   download:
     runs-on: [self-hosted, linux]
- 
     steps:
-      - name: Verify token works
+      - name: Read artifact id
+        id: get_id
         run: |
-          curl -i \
-          -H "Authorization: Bearer ${{ secrets.LIUDONGDONG7397 }}" \
-           https://api.github.com/user
-      - name: Fetch artifact list
+          ART_ID="${{ github.event.client_payload.artifact_id }}"
+          echo "ART_ID=$ART_ID" >> $GITHUB_OUTPUT
+      - name: Check duplicate
+        id: check_dup
         run: |
-          curl -s \
-            -H "Authorization: Bearer ${{ secrets.LIUDONGDONG7397 }}" \
-            -H "Accept: application/vnd.github+json" \
-             https://api.github.com/repos/liudongdongdong7397/aliyun_docker_sync/actions/artifacts \
-             > artifacts.json
-      - name: debug artifact
-        run: |
-           cat artifacts.json
-      - name: Get latest artifact url
-        run: |
-          ART_URL=$(jq -r '.artifacts[0].archive_download_url' artifacts.json)
-          echo "ART_URL=$ART_URL" >> $GITHUB_ENV
- 
+          STATE_FILE="/home/asus/aliyun_sync/last_id.txt"
+          NEW_ID="${{ steps.get_id.outputs.ART_ID }}"
+          if [ -f "$STATE_FILE" ]; then
+            LAST_ID=$(cat $STATE_FILE)
+          else
+            LAST_ID="0"
+          fi
+          if [ "$NEW_ID" = "$LAST_ID" ]; then
+            echo "DUPLICATE=true" >> $GITHUB_OUTPUT
+          else
+            echo "DUPLICATE=false" >> $GITHUB_OUTPUT
+          fi
       - name: Download artifact
+        if: steps.check_dup.outputs.DUPLICATE == 'false'
         run: |
-          mkdir -p /home/asus/actions-runner/data/from-repo-a
+          ART_ID="${{ steps.get_id.outputs.ART_ID }}"
+          API="https://api.github.com/repos/liudongdongdong7397/aliyun_docker_sync/actions/artifacts/$ART_ID/zip"
+          mkdir -p /home/asus/aliyun_sync
           curl -L \
             -H "Authorization: Bearer ${{ secrets.LIUDONGDONG7397 }}" \
-            -o /home/asus/actions-runner/data/from-repo-a/artifact.zip \
-            $ART_URL
- 
-      - name: Unzip
+            -H "Accept: application/vnd.github+json" \
+            -o /home/asus/aliyun_sync/artifact.zip \
+            "$API"
+      - name: Extract
+        if: steps.check_dup.outputs.DUPLICATE == 'false'
         run: |
-          unzip -o /home/asus/actions-runner/data/from-repo-a/artifact.zip -d /home/asus/actions-runner/data/from-repo-a
-          ls -lh /home/asus/actions-runner/data/from-repo-a
+          cd /home/asus/aliyun_sync
+          unzip -o artifact.zip
+      - name: Update state
+        if: steps.check_dup.outputs.DUPLICATE == 'false'
+        run: |
+          echo "${{ steps.get_id.outputs.ART_ID }}" > /home/asus/aliyun_sync/last_id.txt
+ 
