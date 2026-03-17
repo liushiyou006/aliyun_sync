@@ -42,7 +42,7 @@ jobs:
           API="https://api.github.com/repos/liudongdongdong7397/aliyun_docker_sync/actions/artifacts/$ART_ID/zip"
  
           mkdir -p /home/szsw/docker_image_sync/github/image_from_remote
- 
+          rm -rf /home/szsw/docker_image_sync/github/image_from_remote/artifact.zip
           curl -L \
             -H "Authorization: Bearer ${{ secrets.LIUDONGDONG7397 }}" \
             -H "Accept: application/vnd.github+json" \
@@ -54,6 +54,7 @@ jobs:
         run: |
           cd /home/szsw/docker_image_sync/github/image_from_remote
           unzip -o artifact.zip
+          mv *.tar /home/szsw/docker_image_sync/monitor_directory
  
       - name: Update state
         if: steps.check.outputs.DUP == 'false'
