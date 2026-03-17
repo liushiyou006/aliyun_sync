@@ -18,10 +18,10 @@ jobs:
       - name: Check duplicate
         id: check
         run: |
-          STATE="/home/asus/aliyun_sync/last_id.txt"
+          STATE="/home/szsw/docker_image_sync/github/last_id.txt"
           NEW="${{ steps.get_id.outputs.ART_ID }}"
  
-          mkdir -p /home/asus/aliyun_sync
+          mkdir -p /home/szsw/docker_image_sync/github/image_from_remote
  
           if [ -f "$STATE" ]; then
             LAST=$(cat $STATE)
@@ -41,21 +41,21 @@ jobs:
           ART_ID="${{ steps.get_id.outputs.ART_ID }}"
           API="https://api.github.com/repos/liudongdongdong7397/aliyun_docker_sync/actions/artifacts/$ART_ID/zip"
  
-          mkdir -p /home/asus/aliyun_sync
+          mkdir -p /home/szsw/docker_image_sync/github/image_from_remote
  
           curl -L \
             -H "Authorization: Bearer ${{ secrets.LIUDONGDONG7397 }}" \
             -H "Accept: application/vnd.github+json" \
-            -o /home/asus/aliyun_sync/artifact.zip \
+            -o /home/szsw/docker_image_sync/github/image_from_remote/artifact.zip \
             "$API"
  
       - name: Extract
         if: steps.check.outputs.DUP == 'false'
         run: |
-          cd /home/asus/aliyun_sync
+          cd /home/szsw/docker_image_sync/github/image_from_remote
           unzip -o artifact.zip
  
       - name: Update state
         if: steps.check.outputs.DUP == 'false'
         run: |
-          echo "${{ steps.get_id.outputs.ART_ID }}" > /home/asus/aliyun_sync/last_id.txt
+          echo "${{ steps.get_id.outputs.ART_ID }}" > /home/szsw/docker_image_sync/github/last_id.txt
